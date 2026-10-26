@@ -522,28 +522,78 @@ th {
 }
 
 @media (max-width: 780px) {
+  .page-shell.with-sidebar {
+    flex-direction: column;
+    min-height: 100svh;
+  }
+
   .sidebar {
-    width: 52px;
-    min-width: 52px;
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    height: auto;
+    position: static;
+    overflow: visible;
   }
-  .sidebar-nav-item span,
-  .sidebar-footer strong,
-  .sidebar-footer .sidebar-logout-label {
-    display: none;
+
+  .sidebar-nav {
+    flex: none;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+    scrollbar-width: thin;
   }
+
   .sidebar-nav-item {
-    justify-content: center;
-    padding: 10px;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    width: auto;
+    padding: 10px 12px;
+    border-left: 0;
+    border-radius: 8px;
   }
+
+  .sidebar-nav-item:hover {
+    transform: none;
+  }
+
   .sidebar-brand {
-    justify-content: center;
-    padding: 12px 8px;
+    justify-content: flex-start;
+    padding: 10px 14px;
   }
+
   .sidebar-brand img {
     height: 34px;
   }
+
+  .sidebar-footer {
+    padding: 10px 14px;
+  }
+
   .main-content {
+    width: 100%;
     padding: 12px;
+  }
+
+  .card,
+  .cg-card {
+    padding: 14px;
+  }
+
+  .grid-form,
+  .form-row,
+  .cg-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table-wrap,
+  .cg-table-wrap,
+  .scheduler-grid-wrap,
+  .cg-hours-grid-wrap,
+  .month-board-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
