@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import App from './App.jsx'
 import CaregiverApp from './CaregiverApp.jsx'
+import PublicSite from './PublicSite.jsx'
 import logo from './assets/logo.jpg'
 import './App.css'
 
@@ -68,10 +69,16 @@ function Root() {
 
   if (role === 'ADMIN' || role === 'SUPERVISOR' || role === 'CUSTOMER') return <App />
   if (role === 'CAREGIVER') return <CaregiverApp />
+  if (import.meta.env.MODE === 'app' && window.location.pathname !== '/employee-login') {
+    window.location.replace('http://localhost:5174/')
+    return null
+  }
+  if (window.location.pathname !== '/employee-login') return <PublicSite />
 
   // Single shared login page
   return (
     <div className="page-shell">
+      <a className="public-home-link" href={import.meta.env.MODE === 'app' ? 'http://localhost:5174/' : '/'}>Angels at Home</a>
       <header className="topbar">
         <div>
           <img src={logo} alt="Angels at Home" style={{ height: '56px', objectFit: 'contain' }} />
