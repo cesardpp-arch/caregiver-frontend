@@ -255,6 +255,8 @@ export default function CaregiverApp() {
       } else {
         setToken('')
         setMe(null)
+        // Return to the shared sign-in so a non-caregiver profile isn't sent through this portal's login.
+        window.dispatchEvent(new Event('app-logout'))
       }
     } finally {
       setLoading(false)

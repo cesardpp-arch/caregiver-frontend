@@ -595,8 +595,15 @@ function App() {
 
   function buildInvoicePdfDocument({ clientName, clientAddress, invoiceNumber, periodFrom, periodTo, invoiceDate, dueDate, summaryRows = [], summaryTotals = null, previewRows = [] }) {
     const doc = new jsPDF({ unit: 'pt', format: 'letter' })
-    const blue = '#0a57b7'
-    const teal = [10, 155, 170]
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 54
+    const contentWidth = pageWidth - margin * 2
+    const ink = [23, 50, 58]
+    const muted = [102, 122, 128]
+    const teal = [15, 143, 126]
+    const tealSoft = [232, 245, 242]
+    const rule = [214, 226, 224]
     const fmtHours = (n) => {
       const v = Number(n || 0)
       if (!Number.isFinite(v)) return '0'
@@ -607,37 +614,73 @@ function App() {
       if (!Number.isFinite(v)) return '$0.00'
       return `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     }
-
-    doc.setTextColor(10, 87, 183)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(12)
-    doc.text('Bill to:', 54, 84)
-    doc.text(clientName, 54, 104)
-    if (clientAddress) {
-      const addrLines = doc.splitTextToSize(clientAddress, 250)
-      doc.text(addrLines, 54, 124)
+    const sectionTitle = (text, y) => {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(...teal)
+      doc.text(text, margin, y, { charSpace: 1 })
     }
 
-    doc.setFontSize(13)
-    doc.text('Karla Perez', 560, 52, { align: 'right' })
+    // Header band
+    doc.setFillColor(...teal)
+    doc.rect(0, 0, pageWidth, 10, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(20)
+    doc.setTextColor(...ink)
+    doc.text('Angels at Home LLC', margin, 56)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...muted)
+    doc.text('Home Care Assistance', margin, 72)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(26)
+    doc.setTextColor(...teal)
+    doc.text('INVOICE', pageWidth - margin, 58, { align: 'right' })
+    doc.setDrawColor(...rule)
+    doc.setLineWidth(0.8)
+    doc.line(margin, 92, pageWidth - margin, 92)
 
+    // Bill to
+    sectionTitle('BILL TO', 118)
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
-    doc.text('Invoice number:', 332, 166)
-    doc.setFont('helvetica', 'bold')
-    doc.text(invoiceNumber, 470, 166)
-    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...ink)
+    doc.text(clientName || '', margin, 138)
+    let billToBottom = 138
+    if (clientAddress) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(...muted)
+      const addrLines = doc.splitTextToSize(clientAddress, 240)
+      doc.text(addrLines, margin, 154)
+      billToBottom = 154 + (addrLines.length - 1) * 12
+    }
 
-    doc.text('Period:', 332, 188)
-    doc.text(periodFrom, 414, 188)
-    doc.text(periodTo, 498, 188)
-    doc.text('Invoice date:', 332, 210)
-    doc.text(invoiceDate, 414, 210)
-    doc.text('Due Date', 332, 232)
-    doc.text(dueDate, 414, 232)
+    // Invoice details panel
+    const panelX = 340
+    const panelY = 108
+    const panelW = pageWidth - margin - panelX
+    doc.setFillColor(...tealSoft)
+    doc.roundedRect(panelX, panelY, panelW, 96, 4, 4, 'F')
+    const details = [
+      ['Invoice number', invoiceNumber, true],
+      ['Period', `${periodFrom} - ${periodTo}`, false],
+      ['Invoice date', invoiceDate, false],
+      ['Due date', dueDate, false]
+    ]
+    details.forEach(([label, value, strong], i) => {
+      const y = panelY + 24 + i * 20
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9.5)
+      doc.setTextColor(...muted)
+      doc.text(label, panelX + 14, y)
+      doc.setFont('helvetica', strong ? 'bold' : 'normal')
+      doc.setTextColor(...ink)
+      doc.text(String(value || ''), panelX + panelW - 14, y, { align: 'right' })
+    })
 
-    doc.setFont('helvetica', 'bold')
-    doc.text('SUMMARY TO BILL', 54, 268)
-    doc.setFont('helvetica', 'normal')
+    const summaryTitleY = Math.max(billToBottom, panelY + 96) + 36
+    sectionTitle('SUMMARY TO BILL', summaryTitleY)
 
     const summaryTableBody = summaryRows.map((row) => ([
       row.caregiver_name || '',
@@ -656,13 +699,19 @@ function App() {
       ])
     }
 
+    const tableBase = {
+      theme: 'plain',
+      margin: { left: margin, right: margin, bottom: 48 },
+      headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', cellPadding: { top: 6, bottom: 6, left: 6, right: 6 } },
+      alternateRowStyles: { fillColor: [247, 250, 250] }
+    }
+
     autoTable(doc, {
-      startY: 282,
-      theme: 'grid',
-      head: [['', 'Hours', 'Day', 'Night', 'TOTAL']],
+      ...tableBase,
+      startY: summaryTitleY + 10,
+      head: [['Caregiver', 'Hours', 'Day', 'Night', 'Total']],
       body: summaryTableBody,
-      styles: { font: 'helvetica', fontSize: 10, lineColor: [0, 0, 0], lineWidth: 0.6, textColor: [10, 87, 183] },
-      headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+      styles: { font: 'helvetica', fontSize: 10, textColor: ink, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 }, lineColor: rule, lineWidth: { bottom: 0.5 } },
       columnStyles: {
         0: { halign: 'left' },
         1: { halign: 'right' },
@@ -671,8 +720,10 @@ function App() {
         4: { halign: 'right' }
       },
       didParseCell: (hook) => {
-        if (hook.section === 'body' && hook.row.index === summaryTableBody.length - 1) {
+        if (hook.section === 'head' && hook.column.index === 0) hook.cell.styles.halign = 'left'
+        if (summaryTotals && hook.section === 'body' && hook.row.index === summaryTableBody.length - 1) {
           hook.cell.styles.fontStyle = 'bold'
+          hook.cell.styles.fillColor = tealSoft
         }
       }
     })
@@ -681,14 +732,7 @@ function App() {
       if (r.isHeader) {
         return {
           rowType: 'group',
-          day: '',
-          startDate: '',
-          startTime: '',
-          endDate: '',
-          endTime: '',
-          hours: '',
-          notes: '',
-          caregiver: r.caregiver
+          day: { content: r.caregiver || '', colSpan: 8 }
         }
       }
       if (r.isTotal) {
@@ -701,7 +745,7 @@ function App() {
           endTime: 'TOTAL',
           hours: r.hours,
           notes: '',
-          caregiver: r.caregiver
+          caregiver: ''
         }
       }
       return {
@@ -717,9 +761,14 @@ function App() {
       }
     })
 
+    const detailTitleY = (doc.lastAutoTable?.finalY || summaryTitleY) + 34
+    if (detailTitleY > pageHeight - 120) doc.addPage()
+    const detailStartY = detailTitleY > pageHeight - 120 ? 70 : detailTitleY
+    sectionTitle('SHIFT DETAIL', detailStartY)
+
     autoTable(doc, {
-      startY: (doc.lastAutoTable?.finalY || 260) + 24,
-      theme: 'grid',
+      ...tableBase,
+      startY: detailStartY + 10,
       columns: [
         { header: 'Day', dataKey: 'day' },
         { header: 'Start Date', dataKey: 'startDate' },
@@ -731,38 +780,65 @@ function App() {
         { header: 'Caregiver', dataKey: 'caregiver' }
       ],
       body: detailTableRows,
-      styles: { font: 'helvetica', fontSize: 8.5, lineColor: [180, 180, 180], lineWidth: 0.4, textColor: [10, 87, 183] },
-      headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+      alternateRowStyles: {},
+      styles: { font: 'helvetica', fontSize: 8.5, textColor: ink, cellPadding: { top: 5, bottom: 5, left: 5, right: 5 }, lineColor: rule, lineWidth: { bottom: 0.5 }, overflow: 'linebreak' },
+      headStyles: { ...tableBase.headStyles, fontSize: 8.5 },
       columnStyles: {
-        day: { halign: 'left' },
-        startDate: { halign: 'right' },
-        startTime: { halign: 'right' },
-        endDate: { halign: 'right' },
-        endTime: { halign: 'right' },
-        hours: { halign: 'right' },
-        notes: { halign: 'left', cellWidth: 60 },
-        caregiver: { halign: 'left' }
+        day: { halign: 'left', cellWidth: 56 },
+        startDate: { halign: 'right', cellWidth: 62 },
+        startTime: { halign: 'right', cellWidth: 46 },
+        endDate: { halign: 'right', cellWidth: 62 },
+        endTime: { halign: 'right', cellWidth: 46 },
+        hours: { halign: 'right', cellWidth: 40 },
+        notes: { halign: 'left', cellWidth: 96 },
+        caregiver: { halign: 'left', cellWidth: 96 }
       },
       didParseCell: (hook) => {
         const rowType = hook.row.raw?.rowType
         if (hook.section === 'body' && rowType === 'group') {
-          hook.cell.styles.fillColor = [236, 248, 249]
+          hook.cell.styles.fillColor = tealSoft
           hook.cell.styles.fontStyle = 'bold'
-          if (hook.column.dataKey !== 'caregiver') {
-            hook.cell.text = ''
-          }
+          hook.cell.styles.textColor = teal
+          hook.cell.styles.halign = 'left'
         }
         if (hook.section === 'body' && rowType === 'total') {
-          hook.cell.styles.fillColor = [244, 251, 252]
           hook.cell.styles.fontStyle = 'bold'
+          hook.cell.styles.fillColor = [244, 248, 248]
         }
       }
     })
 
-    doc.setTextColor(10, 87, 183)
-    doc.setFontSize(11)
-    doc.text(`Grand Total: ${fmtMoney(summaryTotals?.bill_total || 0)}`, 420, (doc.lastAutoTable?.finalY || 700) + 26)
-    doc.setTextColor(blue)
+    // Grand total
+    let totalY = (doc.lastAutoTable?.finalY || 700) + 24
+    if (totalY > pageHeight - 90) {
+      doc.addPage()
+      totalY = 70
+    }
+    const boxW = 190
+    const boxX = pageWidth - margin - boxW
+    doc.setFillColor(...teal)
+    doc.roundedRect(boxX, totalY, boxW, 40, 4, 4, 'F')
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(255, 255, 255)
+    doc.text('GRAND TOTAL', boxX + 14, totalY + 24)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.text(fmtMoney(summaryTotals?.bill_total || 0), boxX + boxW - 14, totalY + 25, { align: 'right' })
+
+    // Footer on every page
+    const pageCount = doc.getNumberOfPages()
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page)
+      doc.setDrawColor(...rule)
+      doc.setLineWidth(0.8)
+      doc.line(margin, pageHeight - 40, pageWidth - margin, pageHeight - 40)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(...muted)
+      doc.text('Angels at Home LLC', margin, pageHeight - 26)
+      doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 26, { align: 'right' })
+    }
     return doc
   }
 
@@ -1959,11 +2035,6 @@ function App() {
       const mon = d.toLocaleString('en-US', { month: 'short' })
       return `${mon}-${Number(dd)}`
     }
-    const fmtMoney = (n) => {
-      const v = Number(n || 0)
-      if (!Number.isFinite(v)) return '$0.00'
-      return `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    }
     const addDays = (dateStr, days) => {
       if (!dateStr) return ''
       const dt = new Date(`${dateStr}T00:00:00`)
@@ -2100,165 +2171,18 @@ function App() {
         return week
       })()).padStart(4, '0')}`
 
-      const doc = new jsPDF({ unit: 'pt', format: 'letter' })
-      const blue = '#0a57b7'
-      const teal = [10, 155, 170]
-
-      doc.setTextColor(10, 87, 183)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(12)
-      doc.text('Bill to:', 54, 84)
-      doc.text(clientName, 54, 104)
-      if (clientAddress) {
-        const addrLines = doc.splitTextToSize(clientAddress, 250)
-        doc.text(addrLines, 54, 124)
-      }
-
-      doc.setFontSize(13)
-      doc.text('Karla Perez', 560, 52, { align: 'right' })
-
-      doc.setFontSize(12)
-      doc.text('Invoice number:', 332, 166)
-      doc.setFont('helvetica', 'bold')
-      doc.text(invoiceNumber, 470, 166)
-      doc.setFont('helvetica', 'normal')
-
-      doc.text('Period:', 332, 188)
-      doc.text(periodFrom, 414, 188)
-      doc.text(periodTo, 498, 188)
-      doc.text('Invoice date:', 332, 210)
-      doc.text(invoiceDate, 414, 210)
-      doc.text('Due Date', 332, 232)
-      doc.text(dueDate, 414, 232)
-
-      doc.setFont('helvetica', 'bold')
-      doc.text('SUMMARY TO BILL', 54, 268)
-      doc.setFont('helvetica', 'normal')
-
-      const summaryTableBody = summaryRows.map((row) => ([
-        row.caregiver_name || '',
-        fmtHours(row.hours_total),
-        fmtHours(row.hours_day),
-        fmtHours(row.hours_night),
-        fmtMoney(row.bill_total)
-      ]))
-      if (summaryTotals) {
-        summaryTableBody.push([
-          'TOTAL',
-          fmtHours(summaryTotals.hours_total),
-          fmtHours(summaryTotals.hours_day),
-          fmtHours(summaryTotals.hours_night),
-          fmtMoney(summaryTotals.bill_total)
-        ])
-      }
-
-      autoTable(doc, {
-        startY: 282,
-        theme: 'grid',
-        head: [['', 'Hours', 'Day', 'Night', 'TOTAL']],
-        body: summaryTableBody,
-        styles: { font: 'helvetica', fontSize: 10, lineColor: [0, 0, 0], lineWidth: 0.6, textColor: [10, 87, 183] },
-        headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          0: { halign: 'left' },
-          1: { halign: 'right' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' }
-        },
-        didParseCell: (hook) => {
-          if (hook.section === 'body' && hook.row.index === summaryTableBody.length - 1) {
-            hook.cell.styles.fontStyle = 'bold'
-          }
-        }
+      const doc = buildInvoicePdfDocument({
+        clientName,
+        clientAddress,
+        invoiceNumber,
+        periodFrom,
+        periodTo,
+        invoiceDate,
+        dueDate,
+        summaryRows,
+        summaryTotals,
+        previewRows
       })
-
-      const detailTableRows = previewRows.map((r) => {
-        if (r.isHeader) {
-          return {
-            rowType: 'group',
-            day: '',
-            startDate: '',
-            startTime: '',
-            endDate: '',
-            endTime: '',
-            hours: '',
-            notes: '',
-            caregiver: r.caregiver
-          }
-        }
-        if (r.isTotal) {
-          return {
-            rowType: 'total',
-            day: '',
-            startDate: '',
-            startTime: '',
-            endDate: '',
-            endTime: 'TOTAL',
-            hours: r.hours,
-            notes: '',
-            caregiver: r.caregiver
-          }
-        }
-        return {
-          rowType: 'row',
-          day: r.day,
-          startDate: r.startDate,
-          startTime: r.startTime,
-          endDate: r.endDate,
-          endTime: r.endTime,
-          hours: r.hours,
-          notes: r.notes || '',
-          caregiver: r.caregiver
-        }
-      })
-
-      autoTable(doc, {
-        startY: (doc.lastAutoTable?.finalY || 260) + 24,
-        theme: 'grid',
-        columns: [
-          { header: 'Day', dataKey: 'day' },
-          { header: 'Start Date', dataKey: 'startDate' },
-          { header: 'Start Time', dataKey: 'startTime' },
-          { header: 'End Date', dataKey: 'endDate' },
-          { header: 'End Time', dataKey: 'endTime' },
-          { header: 'Tot Hours', dataKey: 'hours' },
-          { header: 'Notes', dataKey: 'notes' },
-          { header: 'Caregiver', dataKey: 'caregiver' }
-        ],
-        body: detailTableRows,
-        styles: { font: 'helvetica', fontSize: 8.5, lineColor: [180, 180, 180], lineWidth: 0.4, textColor: [10, 87, 183] },
-        headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          day: { halign: 'left' },
-          startDate: { halign: 'right' },
-          startTime: { halign: 'right' },
-          endDate: { halign: 'right' },
-          endTime: { halign: 'right' },
-          hours: { halign: 'right' },
-          notes: { halign: 'left', cellWidth: 60 },
-          caregiver: { halign: 'left' }
-        },
-        didParseCell: (hook) => {
-          const rowType = hook.row.raw?.rowType
-          if (hook.section === 'body' && rowType === 'group') {
-            hook.cell.styles.fillColor = [236, 248, 249]
-            hook.cell.styles.fontStyle = 'bold'
-            if (hook.column.dataKey !== 'caregiver') {
-              hook.cell.text = ''
-            }
-          }
-          if (hook.section === 'body' && rowType === 'total') {
-            hook.cell.styles.fillColor = [244, 251, 252]
-            hook.cell.styles.fontStyle = 'bold'
-          }
-        }
-      })
-
-      doc.setTextColor(10, 87, 183)
-      doc.setFontSize(11)
-      doc.text(`Grand Total: ${fmtMoney(summaryTotals?.bill_total || 0)}`, 420, (doc.lastAutoTable?.finalY || 700) + 26)
-      doc.setTextColor(blue)
       doc.save(`invoice-${reportFilters.from_date || 'from'}-to-${reportFilters.to_date || 'to'}.pdf`)
 
       const createPayload = {
